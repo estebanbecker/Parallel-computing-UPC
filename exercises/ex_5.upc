@@ -7,9 +7,9 @@
 
 //==> declare the x, x_new and b arrays in the shared space with size of 
 //    BLOCKSIZE*THREADS and with blocking size of BLOCKSIZE
-shared [...] double x[...];
-shared [...] double x_new[...];
-shared [...] double b[...];
+shared [BLOCKSIZE] double x[BLOCKSIZE*THREADS];
+shared [BLOCKSIZE] double x_new[BLOCKSIZE*THREADS];
+shared [BLOCKSIZE] double b[BLOCKSIZE*THREADS];
 
 void init();
 
@@ -20,7 +20,7 @@ int main(int argc, char **argv){
     upc_barrier;
     //==> insert a upc_forall statement to do work sharing while 
     //    respecting the affinity of the x_new array
-    upc_forall( j=...; j<(...)-1; j++; ...){
+    upc_forall( j=1; j<(BLOCKSIZE*THREADS)-1; j++; &x_new[j] ){
         x_new[j] = 0.5*( x[j-1] + x[j+1] + b[j] );
     }
     upc_barrier;

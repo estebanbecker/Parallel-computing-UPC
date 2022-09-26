@@ -15,20 +15,23 @@ int main(int argc, char **argv){
     int j;
 
     init();
+    
     upc_barrier;
 
-    upc_forall( j=1; j<TOTALSIZE-1; j++ ; j){
+    for( j=1; j<TOTALSIZE-1; j++ ){
         if( MYTHREAD ==  j % THREADS ){
             x_new[j] = 0.5 * ( x[j-1] + x[j+1] + b[j] );
         }
     }
     
+    upc_barrier;
+
     if( MYTHREAD == 0 ){
         printf("   b   |    x   | x_new\n");
         printf("=============================\n");
     }
 
-    upc_forall( j=0; j<TOTALSIZE; j++ ; j)
+    for( j=0; j<TOTALSIZE; j++)
         if( MYTHREAD ==  j % THREADS ){
             printf("%1.4f | %1.4f | %1.4f \n", b[j], x[j], x_new[j]);
         }

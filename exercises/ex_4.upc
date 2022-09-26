@@ -24,7 +24,7 @@ int main(int argc, char **argv){
     // ==> add a for loop which goes only through the elements in the x_new array
     // with affinity to the current THREAD
 
-    for( j...; ...; ... )
+    for(int j=MYTHREAD; j<TOTALSIZE-1; j+=THREADS ){
         x_new[j] = 0.5*( x[j-1] + x[j+1] + b[j] );
 
     upc_barrier;
