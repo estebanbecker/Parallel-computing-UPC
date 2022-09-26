@@ -1,6 +1,5 @@
 #include <upc.h>
-// #include <upc_collective.h>   It is recommended that you use
-//          the collectives for this exercise...
+#include <upc_collective.h> 
 #include <stdio.h>
 #include <math.h>
 
@@ -49,7 +48,7 @@ int main(){
         // The maximum of those values should be used to check
         // the convergence.
 
-        // diffmax = max(diff[0..THREADS - 1])
+        upc_all_reduceD( &diffmax, diff, UPC_MAX,THREADS,1,NULL,UPC_OUT_ALLSYNC);
 
         printf("diff max = %f \n", diffmax);
 
@@ -64,14 +63,13 @@ int main(){
         upc_barrier;
     }
 
-    /* You can display the results here : 
+    
     if( MYTHREAD == 0 ){
         for(j=0; j<TOTALSIZE*THREADS; j++){
             printf("%f\t", x_new[j]);
         }
         printf("\n");
     }
-    */
 
     return 0;
 }
