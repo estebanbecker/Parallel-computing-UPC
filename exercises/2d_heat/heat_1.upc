@@ -1,27 +1,32 @@
 #include <stdio.h>
 #include <math.h>
 #include <sys/time.h>
+#include <upc_relaxed.h>
+#include <upc_collective.h> 
 
 #define N 30
 
-double grid[N+2][N+2], new_grid[N+2][N+2];
+shared double grid[N+2][N+2], new_grid[N+2][N+2];
+shared double dTmax[THREADS];
+shared double diffmax;
 
 void initialize(void)
 {
     int j;
 
     /* Heat one side of the solid */
-    for( j=1; j<N+1; j++ )
+    upc_forall( j=1; j<N+1; j++; j)
     {
         grid[0][j] = 1.0;
         new_grid[0][j] = 1.0;
     }
+    upc_barrier;
 }
 
 int main(void)
 {
     struct timeval ts_st, ts_end;
-    double dTmax, dT, epsilon, time;
+    double dT, epsilon, time;
     int finished, i, j, k, l;
     double T;
     int nr_iter;
@@ -38,8 +43,8 @@ int main(void)
 
     do
     {
-        dTmax = 0.0; 
-        for( i=1; i<N+1; i++ )
+        dTmax[MYTHREAD] = 0.0; 
+        upc_forall( i=1; i<N+1; i++; i)
         {
             for( j=1; j<N+1; j++ )
             {
@@ -48,28 +53,34 @@ int main(void)
                      grid[i][j-1] + grid[i][j+1]); /* stencil */
                 dT = T - grid[i][j]; /* local variation */
                 new_grid[i][j] = T;
-                if( dTmax < fabs(dT) )
-                    dTmax = fabs(dT); /* max variation in this iteration */
+                if( dTmax[MYTHREAD] < fabs(dT) )
+                    dTmax[MYTHREAD] = fabs(dT); /* max variation in this iteration */
             }
         }
-        if( dTmax < epsilon ) /* is the precision reached good enough ? */
+        upc_barrier;
+        upc_all_reduceD( &diffmax, dTmax, UPC_MAX,THREADS,1,NULL,UPC_OUT_ALLSYNC);
+        if( diffmax < epsilon ) /* is the precision reached good enough ? */
             finished = 1;
         else
         {
-            for( k=0; k<N+2; k++ )      /* not yet ... Need to prepare */
+            upc_forall( k=0; k<N+2; k++; k)      /* not yet ... Need to prepare */
                 for( l=0; l<N+2; l++ )    /* ourselves for doing a new */
                     grid[k][l] = new_grid[k][l]; /* iteration */
         }
+        upc_barrier;
         nr_iter++;
     } while( finished == 0 );
 
-    gettimeofday( &ts_end, NULL ); /* end the timed section */
+    if(MYTHREAD == 0)
+    {
+        gettimeofday( &ts_end, NULL ); /* end the timed section */
 
-    /* compute the execution time */
-    time = ts_end.tv_sec + (ts_end.tv_usec / 1000000.0);
-    time -= ts_st.tv_sec + (ts_st.tv_usec / 1000000.0);
+        /* compute the execution time */
+        time = ts_end.tv_sec + (ts_end.tv_usec / 1000000.0);
+        time -= ts_st.tv_sec + (ts_st.tv_usec / 1000000.0);
 
-    printf("%d iterations in %.3lf sec\n", nr_iter, time);
+        printf("%d iterations in %.3lf sec\n", nr_iter, time);
+    }
 
     return 0;
 }
