@@ -4,7 +4,7 @@
 #include <upc_relaxed.h>
 #include <upc_collective.h> 
 
-#define N 30
+#define N 6
 
 shared [(N+2)*(N+2)/THREADS] double grid[N+2][N+2], new_grid[N+2][N+2];
 shared [(N+2)/THREADS] double *shared ptr[N+2], *shared new_ptr[N+2];
@@ -18,7 +18,7 @@ void initialize(void)
     int j;
 
     /* Heat one side of the solid */
-    for( j=MYTHREAD*((N+2)/THREADS); j<(MYTHREAD+1)*((N+2)/THREADS); j++)
+    for(j=1;j<N+1; j++)
     {
         grid[0][j] = 1.0;
         new_grid[0][j] = 1.0;
@@ -29,6 +29,7 @@ void initialize(void)
         new_ptr[j] = &new_grid[j][0];
     }
     int i=0;
+    upc_barrier;
     for( j=MYTHREAD*((N+2)/THREADS); j<(MYTHREAD+1)*((N+2)/THREADS); j++)
     {
         ptr_priv[i] = ptr[j];
@@ -48,6 +49,8 @@ int main(void)
     int nr_iter;
 
     initialize();
+    printf("Initialisation done\n");
+    print_grid();
     /* Set the precision wanted */
     epsilon  = 0.0001;
     finished = 0;
@@ -62,7 +65,7 @@ int main(void)
         if(MYTHREAD!=0)
         {
             for( j=1; j<N+1; j++ )
-            {
+            {  
                 int i=0;
                 T = 0.25 *
                     (ptr_priv[i+1][j] + ptr[(MYTHREAD*((N+2)/THREADS))-1][j] +
@@ -73,6 +76,11 @@ int main(void)
                 new_ptr_priv[i][j] = T;
             }
         }
+        
+        upc_barrier;
+        printf("Barrier 1 done\n");
+        print_grid();
+
         for( i=1; i<(N+2)/THREADS-1; i++)
         {
             for( j=1; j<N+1; j++ )
@@ -86,6 +94,10 @@ int main(void)
                 new_ptr_priv[i][j] = T;
             }
         }
+        upc_barrier;
+        printf("Barrier 2 done\n");
+        print_grid();
+
         if(MYTHREAD!=THREADS-1)
         {
             for( j=1; j<N+1; j++ )
@@ -124,7 +136,12 @@ int main(void)
         }
         upc_barrier;
         nr_iter++;
-    
+        if(MYTHREAD==0)
+        {
+            printf("Iteration %d, diffmax = %f\n", nr_iter, diffmax);
+        }
+        printf("Barrier 3 done\n");
+        print_grid();
     } while( finished == 0 );
 
     if(MYTHREAD == 0)
@@ -137,6 +154,27 @@ int main(void)
 
         printf("%d iterations in %.5lf sec\n", nr_iter, time);
     }
-
+    
     return 0;
+}
+
+//A function to print the grid
+int print_grid()
+{   
+    if(MYTHREAD==0)
+    {
+        printf("Grid:\n");
+        int i, j;
+        for( i=0; i<N+2; i++ )
+        {
+            for( j=0; j<N+2; j++ )
+                printf("%f ", new_grid[i][j]);
+            printf("\n");
+        }
+        scanf("%d", &i);
+    }
+    
+    upc_barrier;
+    return 0;
+
 }
