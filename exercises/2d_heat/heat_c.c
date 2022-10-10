@@ -38,7 +38,7 @@ int main(void)
 
     do
     {
-        shared dTmax = 0.0; 
+        dTmax = 0.0; 
         for( i=1; i<N+1; i++ )
         {
             for( j=1; j<N+1; j++ )
