@@ -4,14 +4,14 @@
 #include <upc_relaxed.h>
 #include <upc_collective.h> 
 
-#define N 6
+#define N 4
+#define PRIV_SIZE ((N+2)/THREADS)
 
 shared [(N+2)*(N+2)/THREADS] double grid[N+2][N+2], new_grid[N+2][N+2];
-shared [(N+2)/THREADS] double *shared ptr[N+2], *shared new_ptr[N+2];
 shared double dTmax[THREADS];
 shared double diffmax;
-shared double *ptr_priv[(N+2)/THREADS];
-shared double *new_ptr_priv[(N+2)/THREADS];
+double *new_ptr_priv[PRIV_SIZE], *ptr_priv[PRIV_SIZE], *tmp_priv;
+shared [(N+2)*(N+2)/THREADS] double *ptr[N+2], *new_ptr[N+2], *tmp;
 
 void initialize(void)
 {
@@ -23,21 +23,6 @@ void initialize(void)
         grid[0][j] = 1.0;
         new_grid[0][j] = 1.0;
     }
-    for( j=MYTHREAD*((N+2)/THREADS); j<(MYTHREAD+1)*((N+2)/THREADS); j++)
-    {
-        ptr[j] = &grid[j][0];
-        new_ptr[j] = &new_grid[j][0];
-    }
-    int i=0;
-    upc_barrier;
-    for( j=MYTHREAD*((N+2)/THREADS); j<(MYTHREAD+1)*((N+2)/THREADS); j++)
-    {
-        ptr_priv[i] = ptr[j];
-        new_ptr_priv[i] = new_ptr[j];
-        i++;
-    }
-
-    upc_barrier;
 }
 
 int main(void)
@@ -48,13 +33,33 @@ int main(void)
     double T;
     int nr_iter;
 
-    initialize();
-    printf("Initialisation done\n");
-    print_grid();
+    if(MYTHREAD == 0)
+    {
+        initialize();
+    }
+    upc_barrier;
     /* Set the precision wanted */
     epsilon  = 0.0001;
     finished = 0;
     nr_iter = 0;
+
+    for(i=0; i<N+2; i+=THREADS)
+    {
+        ptr[i] = grid[i*(N+2)/THREADS];
+        new_ptr[i] = new_grid[i*(N+2)/THREADS];
+    }
+
+    for (i = 0; i < N + 2; i++)
+    {
+        ptr[i] = &grid[i][0];
+        new_ptr[i] = &new_grid[i][0];
+    }
+
+    for (i = 0; i < PRIV_SIZE; i++)
+    {
+        ptr_priv[i] = (double *)&grid[i + (MYTHREAD * PRIV_SIZE)][0];
+        new_ptr_priv[i] = (double *)&new_grid[i + (MYTHREAD * PRIV_SIZE)][0];
+    }   
 
     /* and start the timed section */
     gettimeofday( &ts_st, NULL );
@@ -66,20 +71,18 @@ int main(void)
         {
             for( j=1; j<N+1; j++ )
             {  
-                int i=0;
+                i=0;
                 T = 0.25 *
-                    (ptr_priv[i+1][j] + ptr[(MYTHREAD*((N+2)/THREADS))-1][j] +
+                    (ptr_priv[i + 1][j] + ptr[(MYTHREAD*((N+2)/THREADS))-1][j] +
                      ptr_priv[i][j-1] + ptr_priv[i][j+1]); /* stencil */
-                dT = T - ptr_priv[i][j]; /* local variation */
+                dT = T - ptr_priv[0][j]; /* local variation */
                 if( dT > dTmax[MYTHREAD] )
-                    dTmax[MYTHREAD] = dT;
+                    dTmax[MYTHREAD] = fabs(dT);
                 new_ptr_priv[i][j] = T;
             }
         }
         
         upc_barrier;
-        printf("Barrier 1 done\n");
-        print_grid();
 
         for( i=1; i<(N+2)/THREADS-1; i++)
         {
@@ -90,13 +93,11 @@ int main(void)
                      ptr_priv[i][j-1] + ptr_priv[i][j+1]); /* stencil */
                 dT = T - ptr_priv[i][j]; /* local variation */
                 if( dT > dTmax[MYTHREAD] )
-                    dTmax[MYTHREAD] = dT;
+                    dTmax[MYTHREAD] = fabs(dT);
                 new_ptr_priv[i][j] = T;
             }
         }
         upc_barrier;
-        printf("Barrier 2 done\n");
-        print_grid();
 
         if(MYTHREAD!=THREADS-1)
         {
@@ -104,22 +105,24 @@ int main(void)
             {
                 i=(N+2)/THREADS-1;
                 T = 0.25 *
-                    (ptr[N+2][j] + ptr_priv[i-1][j] +
+                    (ptr[(MYTHREAD + 1)* PRIV_SIZE][j] + ptr_priv[i-1][j] +
                      ptr_priv[i][j-1] + ptr_priv[i][j+1]); /* stencil */
                 dT = T - ptr_priv[i][j]; /* local variation */
                 if( dT > dTmax[MYTHREAD] )
-                    dTmax[MYTHREAD] = dT;
+                    dTmax[MYTHREAD] = fabs(dT);
                 new_ptr_priv[i][j] = T;
             }
         }
         upc_barrier;
         upc_all_reduceD( &diffmax, dTmax, UPC_MAX,THREADS,1,NULL,UPC_OUT_ALLSYNC);
+        
+        printf("nr_iter = %d, diffmax = %f", nr_iter, diffmax);
+        print_grid();
+        
         if( diffmax < epsilon ) /* is the precision reached good enough ? */
             finished = 1;
         else
         {
-            double shared *tmp;
-            shared double *tmp_priv;
             int i=0;
             for( k=MYTHREAD*((N+2)/THREADS); k<(MYTHREAD+1)*((N+2)/THREADS); k++)     /* not yet ... Need to prepare */
             {                                    /* the next iteration */
@@ -136,12 +139,6 @@ int main(void)
         }
         upc_barrier;
         nr_iter++;
-        if(MYTHREAD==0)
-        {
-            printf("Iteration %d, diffmax = %f\n", nr_iter, diffmax);
-        }
-        printf("Barrier 3 done\n");
-        print_grid();
     } while( finished == 0 );
 
     if(MYTHREAD == 0)
@@ -154,6 +151,8 @@ int main(void)
 
         printf("%d iterations in %.5lf sec\n", nr_iter, time);
     }
+
+    print_grid();
     
     return 0;
 }
@@ -161,6 +160,7 @@ int main(void)
 //A function to print the grid
 int print_grid()
 {   
+    upc_barrier;
     if(MYTHREAD==0)
     {
         printf("Grid:\n");
@@ -168,7 +168,7 @@ int print_grid()
         for( i=0; i<N+2; i++ )
         {
             for( j=0; j<N+2; j++ )
-                printf("%f ", new_grid[i][j]);
+                printf("%f ", new_ptr[i][j]);
             printf("\n");
         }
         scanf("%d", &i);

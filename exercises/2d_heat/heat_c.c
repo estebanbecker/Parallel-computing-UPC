@@ -2,7 +2,7 @@
 #include <math.h>
 #include <sys/time.h>
 
-#define N 30
+#define N 4
 
 double grid[N+2][N+2], new_grid[N+2][N+2];
 
@@ -52,6 +52,10 @@ int main(void)
                     dTmax = fabs(dT); /* max variation in this iteration */
             }
         }
+
+        printf("nr_iter = %d, diffmax = %f", nr_iter, dTmax);
+        print_grid();
+
         if( dTmax < epsilon ) /* is the precision reached good enough ? */
             finished = 1;
         else
@@ -61,6 +65,8 @@ int main(void)
                     grid[k][l] = new_grid[k][l]; /* iteration */
         }
         nr_iter++;
+
+
     } while( finished == 0 );
 
     gettimeofday( &ts_end, NULL ); /* end the timed section */
@@ -71,5 +77,24 @@ int main(void)
 
     printf("%d iterations in %.3lf sec\n", nr_iter, time);
 
+    print_grid();
+
     return 0;
+}
+
+int print_grid()
+{  
+    printf("Grid:\n");
+    int i, j;
+    for( i=0; i<N+2; i++ )
+    {
+        for( j=0; j<N+2; j++ )
+            printf("%f ", new_grid[i][j]);
+        printf("\n");
+    }
+    
+    scanf("%d", &i);
+
+    return 0;
+
 }
