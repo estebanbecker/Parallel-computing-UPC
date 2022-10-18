@@ -2,7 +2,7 @@
 #include <math.h>
 #include <sys/time.h>
 
-#define N 4
+#define N 998
 
 double grid[N+2][N+2], new_grid[N+2][N+2];
 
@@ -53,8 +53,8 @@ int main(void)
             }
         }
 
-        printf("nr_iter = %d, diffmax = %f", nr_iter, dTmax);
-        print_grid();
+        //printf("nr_iter = %d, diffmax = %f", nr_iter, dTmax);
+        //print_grid();
 
         if( dTmax < epsilon ) /* is the precision reached good enough ? */
             finished = 1;
@@ -77,7 +77,7 @@ int main(void)
 
     printf("%d iterations in %.3lf sec\n", nr_iter, time);
 
-    print_grid();
+    //print_grid();
 
     return 0;
 }
