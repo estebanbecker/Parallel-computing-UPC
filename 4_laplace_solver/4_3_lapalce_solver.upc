@@ -15,7 +15,6 @@ int main(int argc, char **argv){
     int iter;
 
     init();
-    upc_barrier;
 
     // add two barrier statements, to ensure all threads finished computing
     // x_new[] and to ensure that all threads have completed the array
@@ -25,9 +24,15 @@ int main(int argc, char **argv){
             x_new[j] = 0.5*( x[j-1] + x[j+1] + b[j] );
         }
 
+        //UPC barrier needed to ensure all threads have finished computing x_new[]
+        upc_barrier;
+
         upc_forall( j=0; j<BLOCKSIZE*THREADS; j++; &x_new[j] ){
             x[j] = x_new[j];
         }
+
+        //UPC barrier needed to ensure all threads have finished swapping x[] and x_new[]
+        upc_barrier;
     }
 
     if( MYTHREAD == 0 ){
@@ -52,4 +57,6 @@ void init(){
             x[i] = (double)rand() / RAND_MAX;
         }
     }
+
+    upc_barrier;
 }

@@ -3,12 +3,11 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define TOTALSIZE 	800
+#define TOTALSIZE 16
 
-//== declare the x, x_new, b arrays in the shared space with size of TOTALSIZE
-shared double x[TOTALSIZE];
-shared double x_new[TOTALSIZE];
-shared double b[TOTALSIZE];
+shared double x[TOTALSIZE*THREADS];
+shared double x_new[TOTALSIZE*THREADS];
+shared double b[TOTALSIZE*THREADS];
 
 void init();
 
@@ -18,19 +17,20 @@ int main(int argc, char **argv){
     init();
     upc_barrier;
 
-    //== add a for loop which goes through the elements in the x_new array
-    for( j=...; j<(...)-1; j++ ){
-        //== insert an if statement to do the work sharing across the threads
-        if( ... == MYTHREAD){
-            x_new[j] = 0.5*( x[j-1] + x[j+1] + b[j] );
-        }
-    }
+    // a for loop which goes only through the elements in the x_new array
+    // with affinity to the current THREAD
+
+    for(int j=MYTHREAD; j<TOTALSIZE-1; j+=THREADS ){
+        x_new[j] = 0.5*( x[j-1] + x[j+1] + b[j] );
+
+    //UPC_BARRIER to make sure all threads have finished the computation
+    upc_barrier;
 
     if( MYTHREAD == 0 ){
         printf("   b   |    x   | x_new\n");
         printf("=============================\n");
 
-        for( j=0; j<TOTALSIZE; j++ )
+        for( j=0; j<TOTALSIZE*THREADS; j++ )
             printf("%1.4f | %1.4f | %1.4f \n", b[j], x[j], x_new[j]);
     }
 
@@ -43,7 +43,7 @@ void init(){
     if( MYTHREAD == 0 ){
         srand(time(NULL));
 
-        for( i = 0; i<TOTALSIZE; i++ ){
+        for( i=0 ; i<TOTALSIZE*THREADS; i++ ){
             b[i] = (double)rand() / RAND_MAX;
             x[i] = (double)rand() / RAND_MAX;
         }

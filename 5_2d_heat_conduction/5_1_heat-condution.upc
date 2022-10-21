@@ -6,7 +6,7 @@
 
 #define N 30
 
-shared double grid[N+2][N+2], new_grid[N+2][N+2];
+shared [(N+2)*(N+2)/THREADS] double grid[N+2][N+2], new_grid[N+2][N+2];
 shared double dTmax[THREADS];
 shared double diffmax;
 
@@ -44,8 +44,9 @@ int main(void)
     do
     {
         dTmax[MYTHREAD] = 0.0; 
-        upc_forall( i=1; i<N+1; i++; i)
+        upc_forall( i=1; i<N+1; i++; i*THREADS/(N+2))
         {
+            //Do the new grid calculation
             for( j=1; j<N+1; j++ )
             {
                 T = 0.25 *
@@ -63,9 +64,9 @@ int main(void)
             finished = 1;
         else
         {
-            upc_forall( k=0; k<N+2; k++; k)      /* not yet ... Need to prepare */
-                for( l=0; l<N+2; l++ )    /* ourselves for doing a new */
-                    grid[k][l] = new_grid[k][l]; /* iteration */
+            upc_forall( k=0; k<N+2; k++; k)      /* swap the grids */
+                for( l=0; l<N+2; l++ )    
+                    grid[k][l] = new_grid[k][l]; 
         }
         upc_barrier;
         nr_iter++;
