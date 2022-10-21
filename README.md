@@ -1,59 +1,15 @@
-$$
-\documentclass{report}
-\usepackage[utf8]{inputenc}
-\usepackage{listings}
-\usepackage{xcolor}
-\usepackage{graphicx}
-\usepackage{caption} 
-\usepackage{helvet}
-\renewcommand{\familydefault}{\sfdefault}
+# Introduction
 
-\definecolor{codegreen}{rgb}{0,0.6,0}
-\definecolor{codegray}{rgb}{0.5,0.5,0.5}
-\definecolor{codepurple}{rgb}{0.58,0,0.82}
-\definecolor{backcolour}{rgb}{0.95,0.95,0.95}
+# Work sharing, synchronization
 
-\lstdefinestyle{mystyle}{
-    backgroundcolor=\color{backcolour},   
-    commentstyle=\color{codegreen},
-    keywordstyle=\color{magenta},
-    numberstyle=\tiny\color{codegray},
-    stringstyle=\color{codepurple},
-    basicstyle=\ttfamily\footnotesize,
-    breakatwhitespace=false,         
-    breaklines=true,                 
-    captionpos=b,                    
-    keepspaces=true,                 
-    numbers=left,                    
-    numbersep=5pt,                  
-    showspaces=false,                
-    showstringspaces=false,
-    showtabs=false,                  
-    tabsize=2
-}
+## Conversion table
 
-\lstset{style=mystyle}
+To optimize the code we can parallelize the for loop. To do it correctly
+we will not use a test in the loop to distribute the work but change the
+initiation and the step of the for loop. We have to add a upc_barrier to
+be sure all the work is finished before the results are printed.
 
-\title{PC40 UPC Report}
-\author{Esteban Becker}
-\date{October 2022}
-
-\begin{document}
-
-\maketitle
-
-\tableofcontents
-
-\chapter{Introduction}
-
-\chapter{Work sharing, synchronization}
-
-\section{Conversion table}
-
-To optimize the code we can parallelize the for loop. To do it correctly we will not use a test in the loop to distribute the work but change the initiation and the step of the for loop.\newline
-We have to add a upc\_barrier to be sure all the work is finished before the results are printed.
-
-\begin{lstlisting}[language=C]
+``` objectivec
 #include <stdio.h>
 #include <upc.h>
 #define TBL_SZ 12
@@ -79,19 +35,15 @@ int main(){
         printf("%d \t %d \n", fahrenheit[i], celsius);
     }
 }
+```
 
-\end{lstlisting}
+# Shared arrays, blocked shared arrays
 
-
-\chapter{Shared arrays, blocked shared arrays}
-
-
-
-\section{Vector addition}
+## Vector addition
 
 To add two vector vector we can share the work between threads.
 
-\begin{lstlisting}[language=C]
+``` objectivec
 #include<upc_relaxed.h> 
 #define N 100 
 shared int v1[N], v2[N], v1plusv2[N]; 
@@ -103,11 +55,12 @@ void main()
         v1plusv2[i]=v1[i]+v2[i] ; 
     }
 }
-\end{lstlisting}
+```
 
-We can change the loop to avoid the code doing a check for each iteration.
+We can change the loop to avoid the code doing a check for each
+iteration.
 
-\begin{lstlisting}[language=C]
+``` objectivec
 #include<upc_relaxed.h> 
 #define N 100 
 
@@ -119,13 +72,14 @@ void main()
         v1plusv2[i]=v1[i]+v2[i] ; 
     }
 }
-\end{lstlisting}
+```
 
-The shared data are distributed in round rubbish fashion. Here the default distribution yields is an efficient implementation in this case
+The shared data are distributed in round rubbish fashion. Here the
+default distribution yields is an efficient implementation in this case
 
-\section{Matrix vector multiplication}
+## Matrix vector multiplication
 
-\begin{lstlisting}[language=C]
+``` objectivec
 shared int a[THREADS][THREADS] ; //Matrix A
 shared int b[THREADS], c[THREADS] ; //Vector B and C
 void main (void) 
@@ -140,19 +94,16 @@ void main (void)
         }
     }
 }
-\end{lstlisting}
+```
 
 Here the data are not well distributed.
 
-\begin{center}
-    \includegraphics[scale=0.5]{Images/Matrix_vector_unoptimized.png}
-    \captionof{figure}{Not optimised data distribution}
-    \label{fig1}
-\end{center}
+![image](Images/Matrix_vector_unoptimized.png) <span id="fig1"
+label="fig1"></span>
 
 To optimise the code we can change the BLOCKSIZE of the matrix a
 
-\begin{lstlisting}[language=C]
+``` objectivec
 // vect_mat_mult.c
 #include <upc.h>
 shared [THREADS] int a[THREADS][THREADS] ; //Matrix A with a different blocksize
@@ -169,21 +120,18 @@ void main (void)
         }
     }
 }
-\end{lstlisting}
+```
 
-\begin{center}
-    \includegraphics[scale=0.5]{Images/Matrix_vector_optimized.png}
-    \captionof{figure}{Optimised data distribution}
-    \label{fig2}
-\end{center}
+![image](Images/Matrix_vector_optimized.png) <span id="fig2"
+label="fig2"></span>
 
-\chapter{Simplified 1D Laplace solver}
+# Simplified 1D Laplace solver
 
-\section{The 1D solver in UPC}
+## The 1D solver in UPC
 
 To implement the 1D in UPC we can to the following code:
 
-\begin{lstlisting}[language=C]
+``` objectivec
 #include <upc_relaxed.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -236,33 +184,33 @@ void init(){
         }
     }
 }
+```
 
-\end{lstlisting}
+This implementation isn’t optimise cause each thread will check an IF
+statement even if it’s not there work. To avoid the race condition, we
+can add two upc_barrier, one after the initialisation and another before
+the printing
 
-This implementation isn't optimise cause each thread will check an IF statement even if it's not there work. To avoid the race condition, we can add two upc\_barrier, one after the initialisation and another before the printing
+![image](Images/1rst_output.png) <span id="fig3" label="fig3"></span>
 
-\begin{center}
-    \includegraphics[scale=0.75]{Images/1rst_output.png}
-    \captionof{figure}{Output of the 1rst 1D Laplace solver}
-    \label{fig3}
-\end{center}
+## Optimize the code
 
-\section{Optimize the code}
+### Avoiding the if condition
 
-\subsection{Avoiding the if condition}
-To avoid the code to check an if condition we can use the following code:
+To avoid the code to check an if condition we can use the following
+code:
 
-\begin{lstlisting}[language=C]
-    for(int j=MYTHREAD; j<TOTALSIZE-1; j+=THREADS ){
+``` objectivec
+for(int j=MYTHREAD; j<TOTALSIZE-1; j+=THREADS ){
         x_new[j] = 0.5*( x[j-1] + x[j+1] + b[j] );
     }
-\end{lstlisting}
+```
 
-\subsection{Blocked arrays}
+### Blocked arrays
 
 To optimize the memory distribution we can set a BLOCKSIZE
 
-\begin{lstlisting}[language=C]
+``` objectivec
 #include <upc_relaxed.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -314,23 +262,18 @@ void init(){
     }
 }
 
+```
 
-\end{lstlisting}
+![image](Images/Laplace_unoptimized_da.png) <span id="fig4"
+label="fig4"></span> ![image](Images/Lapalce_optmized_data.png) <span
+id="fig5" label="fig5"></span>
 
-\begin{center}
-    \includegraphics[scale=0.070]{Images/Laplace_unoptimized_da.png}
-    \captionof{figure}{Unoptimise data distribution}
-    \label{fig4}
-    \includegraphics[scale=0.070]{Images/Lapalce_optmized_data.png}
-    \captionof{figure}{Optimise data distribution}
-    \label{fig5}
-\end{center}
+With the schema we can see that when the data are grouped together,
+there is more local shared memory access than the normal distribution.
 
-With the schema we can see that when the data are grouped together, there is more local shared memory access than the normal distribution.
+## Synchronization
 
-\section{Synchronization}
-
-\begin{lstlisting}[language=c]
+``` c
 #include <upc_relaxed.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -392,21 +335,24 @@ void init(){
     }
     upc_barrier;
 }
+```
 
-\end{lstlisting}
+To implement the iteration we have to avoid the race condition by adding
+two upc_barrier at the lines 28 and 35
 
-To implement the iteration we have to avoid the race condition by adding two upc\_barrier at the lines 28 and 35
+## Convergence
 
-\section{Convergence}
-We keep track of the maximum difference between the \textit{x} and \textit{xmax}.
-To check if the code reached to convergence we can use a collective operation with the following line:
-\begin{lstlisting}[language=c]
+We keep track of the maximum difference between the *x* and *xmax*. To
+check if the code reached to convergence we can use a collective
+operation with the following line:
+
+``` c
 upc_all_reduceD( &diffmax, diff, UPC_MAX,THREADS,1,NULL,UPC_OUT_ALLSYNC);
-\end{lstlisting}
+```
 
 To finally obtain this code:
 
-\begin{lstlisting}[language=c]
+``` c
 #include <upc.h>
 #include <upc_collective.h> 
 #include <stdio.h>
@@ -482,15 +428,16 @@ int main(){
 
     return 0;
 }
-\end{lstlisting}
+```
 
-\chapter{2D Heat conduction}
+# 2D Heat conduction
 
-\section{First UPC program}
+## First UPC program
 
-To create the first UPC version we spread the work between all the threads and optimize the data blocksize
+To create the first UPC version we spread the work between all the
+threads and optimize the data blocksize
 
-\begin{lstlisting}[language=c]
+``` c
 #include <stdio.h>
 #include <math.h>
 #include <sys/time.h>
@@ -578,8 +525,4 @@ int main(void)
 
     return 0;
 }
-\end{lstlisting}
-
-\listoffigures
-\end{document}
-$$
+```
