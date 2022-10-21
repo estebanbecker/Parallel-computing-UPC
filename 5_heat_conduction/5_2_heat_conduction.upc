@@ -6,8 +6,8 @@
 
 #define N 30
 
-shared double grid[N+2][N+2], new_grid[N+2][N+2];
-shared double *shared ptr[N+2], *shared new_ptr[N+2];
+shared [(N+2)*(N+2)/THREADS] double grid[N+2][N+2], new_grid[N+2][N+2];
+shared [(N+2)*(N+2)/THREADS] double *shared ptr[N+2], *shared new_ptr[N+2];
 shared double dTmax[THREADS];
 shared double diffmax;
 
