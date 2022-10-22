@@ -2,7 +2,7 @@
 #include <math.h>
 #include <sys/time.h>
 
-#define N 998
+#define N 6
 
 double grid[N+2][N+2], new_grid[N+2][N+2];
 
@@ -66,7 +66,6 @@ int main(void)
         }
         nr_iter++;
 
-
     } while( finished == 0 );
 
     gettimeofday( &ts_end, NULL ); /* end the timed section */
@@ -76,8 +75,6 @@ int main(void)
     time -= ts_st.tv_sec + (ts_st.tv_usec / 1000000.0);
 
     printf("%d iterations in %.3lf sec\n", nr_iter, time);
-
-    //print_grid();
 
     return 0;
 }
