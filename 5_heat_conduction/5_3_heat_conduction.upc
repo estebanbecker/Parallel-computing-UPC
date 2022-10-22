@@ -4,7 +4,7 @@
 #include <upc_relaxed.h>
 #include <upc_collective.h> 
 
-#define N 6
+#define N 30
 #define PRIV_SIZE ((N+2)/THREADS)
 
 shared [(N+2)*(N+2)/THREADS] double grid[N+2][N+2], new_grid[N+2][N+2];
