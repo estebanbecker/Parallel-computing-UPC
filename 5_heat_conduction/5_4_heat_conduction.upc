@@ -4,8 +4,8 @@
 #include <upc_relaxed.h>
 #include <upc_collective.h> 
 
-#define grid(i,j) sh_grid[((i * N) + j)/(N*priv_size)].chunk[((i * N) + j)%(N*priv_size)]
-#define new_grid(i,j) sh_new_grid[((i * N) + j)/(N*priv_size)].chunk[((i * N) + j)%(N*priv_size)]
+#define grid(i,j) sh_grid[((i * (N+2)) + j)/((N+2)*priv_size)].chunk[((i * (N+2)) + j)%((N+2)*priv_size)]
+#define new_grid(i,j) sh_new_grid[((i * (N+2)) + j)/((N+2)*priv_size)].chunk[((i * (N+2)) + j)%((N+2)*priv_size)]
 
 
 shared double dTmax[THREADS];
@@ -32,6 +32,7 @@ void initialize(void)
         grid(0,j) = 1.0;
         new_grid(0,j) = 1.0;
     }
+    print_grid();
 }
 
 int main(int argc, char *argv[])
@@ -161,7 +162,7 @@ int main(int argc, char *argv[])
         }
         upc_barrier;
         nr_iter++;
-        print_grid();
+        printf("Thread %d finished iteration %d diffmax = %f", MYTHREAD, nr_iter, diffmax);
     } while( finished == 0 );
 
     if(MYTHREAD == 0)
@@ -174,7 +175,7 @@ int main(int argc, char *argv[])
 
         printf("%d iterations in %.5lf sec\n", nr_iter, time);
     }
-    
+    printf("Thread %d finished", MYTHREAD);
     return 0;
 }
 
@@ -185,15 +186,15 @@ int print_grid()
     if(MYTHREAD==0)
     {
         printf("Grid:\n");
-        int i, j;
+        int i, j, k;
         for( i=0; i<N+2; i++ )
         {
             for( j=0; j<N+2; j++ )
-                printf("%f ", new_grid(i,j));
-                scanf("%d", &i);
+            {  
+                printf("%f ", grid(i,j));
+            }
             printf("\n");
-        }
-        
+        } 
     }
     
     upc_barrier;
