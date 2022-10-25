@@ -10,7 +10,6 @@
 #define priv_grid(i,j) *ptr_priv[(((i) * (N+2)) + (j))]
 #define priv_new_grid(i,j) *new_ptr_priv[(((i) * (N+2)) + (j))]
 
-
 shared double dTmax[THREADS];
 shared double diffmax;
 int N;
@@ -69,13 +68,10 @@ int main(int argc, char *argv[])
     sh_grid[MYTHREAD].chunk = (shared[] double *) upc_alloc((N+2)*priv_size*sizeof(double));
     sh_new_grid[MYTHREAD].chunk = (shared[] double *) upc_alloc((N+2)*priv_size*sizeof(double));
 
-    upc_barrier;
-
     if(MYTHREAD == 0)
     {
         initialize();
     }
-    upc_barrier;
     /* Set the precision wanted */
     epsilon  = 0.0001;
     finished = 0;
@@ -94,7 +90,6 @@ int main(int argc, char *argv[])
     }
 
     upc_barrier;
-
     /* and start the timed section */
     gettimeofday( &ts_st, NULL );
 
@@ -153,7 +148,10 @@ int main(int argc, char *argv[])
         }
 
         upc_barrier;
+
         diffmax = 0.0;
+
+        /*Calcul the diffmax for all the threads*/
         for(i=0; i<THREADS; i++)
         {
             if(dTmax[i] > diffmax)
@@ -161,7 +159,6 @@ int main(int argc, char *argv[])
                 diffmax = dTmax[i];
             }
         }
-        upc_barrier;
 
         upc_all_reduceD( &diffmax, dTmax, UPC_MAX,THREADS,1,NULL,UPC_IN_ALLSYNC | UPC_OUT_ALLSYNC);
 
@@ -174,6 +171,8 @@ int main(int argc, char *argv[])
             tmp = sh_grid[MYTHREAD].chunk;
             sh_grid[MYTHREAD].chunk = sh_new_grid[MYTHREAD].chunk;
             sh_new_grid[MYTHREAD].chunk = tmp;
+
+
             double ** tmp_priv;
             tmp_priv = ptr_priv;
             ptr_priv = new_ptr_priv;
@@ -193,6 +192,12 @@ int main(int argc, char *argv[])
 
         printf("%d iterations in %.5lf sec\n", nr_iter, time);
     }
+    /*Free the allocated memory*/
+    free(ptr_priv);
+    free(new_ptr_priv);
+
+    upc_free(sh_grid[MYTHREAD].chunk);
+    upc_free(sh_new_grid[MYTHREAD].chunk);
     return 0;
 }
 
