@@ -4,7 +4,7 @@
 #include <upc_relaxed.h>
 #include <upc_collective.h> 
 
-#define N 30
+#define N 1006
 
 shared [(N+2)*(N+2)/THREADS] double grid[N+2][N+2], new_grid[N+2][N+2];
 shared [(N+2)*(N+2)/THREADS] double *shared ptr[N+2], *shared new_ptr[N+2];
