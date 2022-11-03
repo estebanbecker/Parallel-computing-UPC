@@ -1,6 +1,6 @@
 # Introduction
 
-This document is a report of the PC40 UV at the UTBM. All the test was
+This document is a report of the PC40 UV at the UTBM. All the tests was
 run on the [mesocentre de calcul
 Franche-Compté](https://www.univ-fcomte.fr/informatique-calcul/mesocentre-de-calcul)
 with 32 execution cores and 64 GB of RAM.
@@ -10,9 +10,10 @@ with 32 execution cores and 64 GB of RAM.
 ## Conversion table
 
 To optimize the code we can parallelize the for loop. To do it correctly
-we will not use a test in the loop to distribute the work but change the
-initiation and the step of the for loop. We have to add a upc_barrier to
-be sure all the work is finished before the results are printed.
+we will not use a test in the loop to distribute the work but we will
+change the initiation and the step of the for loop. We have to add a
+upc_barrier to be sure all the work is finished before the results are
+printed.
 
 ``` objectivec
 #include <stdio.h>
@@ -46,7 +47,7 @@ int main(){
 
 ## Vector addition
 
-To add two vector vector we can share the work between threads.
+To add two vectors we can share the additions between the threads.
 
 ``` objectivec
 #include<upc_relaxed.h> 
@@ -62,7 +63,7 @@ void main()
 }
 ```
 
-We can change the loop to avoid the code doing a check for each
+We can change the loop to avoid the code doing a check at each
 iteration.
 
 ``` objectivec
@@ -101,12 +102,15 @@ void main (void)
 }
 ```
 
-Here the data are not well distributed.
+Here the data are not well distributed cause each threats will use data
+that don’t have affinity with them.
 
 ![image](Images/Matrix_vector_unoptimized.png) <span id="fig1"
 label="fig1"></span>
 
-To optimise the code we can change the BLOCKSIZE of the matrix a
+To optimise the code we can change the BLOCKSIZE of the matrix a. With
+this distribution all the data of the matrix has affinity to the thread
+that will use them.
 
 ``` objectivec
 // vect_mat_mult.c
@@ -134,7 +138,7 @@ label="fig2"></span>
 
 ## The 1D solver in UPC
 
-To implement the 1D in UPC we can to the following code:
+To implement the 1D Laplace solver in UPC we can to the following code:
 
 ``` objectivec
 #include <upc_relaxed.h>
@@ -192,9 +196,10 @@ void init(){
 ```
 
 This implementation isn’t optimise cause each thread will check an IF
-statement even if it’s not there work. To avoid the race condition, we
-can add two upc_barrier, one after the initialisation and another before
-the printing
+statement to share the work.
+
+To avoid the race condition, we can add two upc_barrier, one after the
+initialisation and another before the printing
 
 ![image](Images/1rst_output.png) <span id="fig3" label="fig3"></span>
 
@@ -202,8 +207,8 @@ the printing
 
 ### Avoiding the if condition
 
-To avoid the code to check an if condition we can use the following
-code:
+To avoid the code to check an if condition we can use the following for
+loop:
 
 ``` objectivec
 for(int j=MYTHREAD; j<TOTALSIZE-1; j+=THREADS ){
@@ -213,7 +218,8 @@ for(int j=MYTHREAD; j<TOTALSIZE-1; j+=THREADS ){
 
 ### Blocked arrays
 
-To optimize the memory distribution we can set a BLOCKSIZE
+To optimize the memory distribution we can set a BLOCKSIZE and change
+the for loop to a upc_forall
 
 ``` objectivec
 #include <upc_relaxed.h>
@@ -273,8 +279,9 @@ void init(){
 label="fig4"></span> ![image](Images/Lapalce_optmized_data.png) <span
 id="fig5" label="fig5"></span>
 
-With the schema we can see that when the data are grouped together,
-there is more local shared memory access than the normal distribution.
+With the above schema we can see that when the data are grouped
+together, there is more shared memory access with affinity than the
+original distribution.
 
 ## Synchronization
 
@@ -347,15 +354,15 @@ two upc_barrier at the lines 28 and 35
 
 ## Convergence
 
-We keep track of the maximum difference between the *x* and *xmax*. To
-check if the code reached to convergence we can use a collective
-operation with the following line:
+We have to keep track of the maximum difference between the *x* and
+*xmax*. To check if the code reached to convergence we can use the
+following collective operation:
 
 ``` c
 upc_all_reduceD( &diffmax, diff, UPC_MAX,THREADS,1,NULL,UPC_OUT_ALLSYNC);
 ```
 
-To finally obtain this code:
+Finally we obtain this code:
 
 ``` c
 #include <upc.h>
@@ -534,15 +541,16 @@ int main(void)
 
 ## Better memory use
 
-We can improve the memory use by not completing the whole grid at each
-iteration. To do that we will use pointers and flip them at the end of
-an iteration. To achieve that we have to declare shared pointers:
+We can improve the memory use by not copying the whole grid at each
+iteration. To do that we will use a pointer for each grid and flip them
+at the end of an iteration. To achieve that we have to declare shared
+pointers:
 
 ``` c
 shared [(N+2)*(N+2)/THREADS] double *shared ptr[N+2], *shared new_ptr[N+2];
 ```
 
-And to change the copying part of the code with a pointer flipping step:
+And change the copying part of the code with a pointer flipping step:
 
 ``` c
 upc_forall( k=0; k<N+2; k++; k)
@@ -557,7 +565,7 @@ upc_forall( k=0; k<N+2; k++; k)
 
 To increase the performance we can use private pointers. To do that we
 will have to do 3 different for loop. One for the top part of the local
-shared pointers, one for the middle part and one for the bottom part.
+pointers, one for the middle part and one for the bottom part.
 
 ![image](Images/for_loop_distribution.png) <span id="fig6"
 label="fig6"></span>
@@ -717,3 +725,306 @@ int main(void)
 ```
 
 ## Dynamic problem size
+
+To allow the user to chose the problem size at the run time in the
+command we will have to use memory allocation with upc_alloc and malloc.
+
+``` c
+#include <stdio.h>
+#include <math.h>
+#include <sys/time.h>
+#include <upc_relaxed.h>
+#include <upc_collective.h> 
+
+#define grid(i,j) sh_grid[(((i) * (N+2)) + (j))/((N+2)*priv_size)].chunk[(((i) * (N+2)) + (j))%((N+2)*priv_size)]
+#define new_grid(i,j) sh_new_grid[(((i) * (N+2)) + (j))/((N+2)*priv_size)].chunk[(((i) * (N+2)) + (j))%((N+2)*priv_size)]
+
+#define priv_grid(i,j) *ptr_priv[(((i) * (N+2)) + (j))]
+#define priv_new_grid(i,j) *new_ptr_priv[(((i) * (N+2)) + (j))]
+
+shared double dTmax[THREADS];
+shared double diffmax;
+int N;
+int priv_size;
+
+typedef struct chunk_s chunk_t;
+struct chunk_s {
+    shared [] double *chunk;
+};
+
+shared chunk_t sh_grid[THREADS];
+shared chunk_t sh_new_grid[THREADS];
+chunk_t tmp;
+
+void initialize(void)
+{
+    int j;
+
+    /* Heat one side of the solid */
+    for(j=1;j<N+1; j++)
+    {
+        grid(0,j) = 1.0;
+        new_grid(0,j) = 1.0;
+    }
+}
+
+int main(int argc, char *argv[])
+{
+    struct timeval ts_st, ts_end;
+    double dT, epsilon, time;
+    int finished, i, j, k, l;
+    double T;
+    int nr_iter;
+
+
+    if(argc != 2)
+    {
+        if(MYTHREAD == 0)
+        {
+            printf("Usage: %s <N>", argv[0]);
+        }        
+        exit(1);
+    }
+    N = atoi(argv[1]);
+    if(N<1)
+    {
+        if(MYTHREAD == 0)
+        {
+            printf("N must be greater than 1");
+        }
+        exit(1);
+    }
+    priv_size = (N+2)/THREADS;
+
+    /*Alocate the memory*/
+    sh_grid[MYTHREAD].chunk = (shared[] double *) upc_alloc((N+2)*priv_size*sizeof(double));
+    sh_new_grid[MYTHREAD].chunk = (shared[] double *) upc_alloc((N+2)*priv_size*sizeof(double));
+
+    if(MYTHREAD == 0)
+    {
+        initialize();
+    }
+    /* Set the precision wanted */
+    epsilon  = 0.0001;
+    finished = 0;
+    nr_iter = 0;
+
+    /*Alloc the private pointers*/
+    double **ptr_priv = (double **) malloc((N+2)*priv_size*sizeof(double*));
+    double **new_ptr_priv = (double **) malloc((N+2)*priv_size*sizeof(double*));
+
+
+    /*Initialize the pointers*/
+    for (i = 0; i < (N+2)*priv_size; i++)
+    {
+        ptr_priv[i] = (double *) &sh_grid[MYTHREAD].chunk[i];
+        new_ptr_priv[i] = (double *) &sh_new_grid[MYTHREAD].chunk[i];
+    }
+
+    upc_barrier;
+    /* and start the timed section */
+    gettimeofday( &ts_st, NULL );
+
+    do
+    {
+        dTmax[MYTHREAD] = 0.0;
+        if(MYTHREAD!=0)
+        {
+            /*First for loop for the first line*/
+            for( j=1; j<N+1; j++ )
+            {  
+                i=0;
+                T = 0.25 *
+                    (priv_grid(i + 1,j) + grid((MYTHREAD*priv_size)-1,j) +
+                     priv_grid(i,j-1) + priv_grid(i,j+1)); /* stencil */
+
+                dT = T - priv_grid(i,j); /* local variation */
+                if( fabs(dT) > dTmax[MYTHREAD] )
+                    dTmax[MYTHREAD] = fabs(dT);
+                priv_new_grid(i,j) = T;
+            }
+        }
+        
+        /*Second for loop for the lines in the middle with only private pointers*/
+        for( i=1; i<(N+2)/THREADS-1; i++)
+        {
+            for( j=1; j<N+1; j++ )
+            {  
+                T = 0.25 *
+                    (priv_grid(i + 1,j) + priv_grid(i - 1,j) +
+                     priv_grid(i,j-1) + priv_grid(i,j+1)); /* stencil */
+                
+                dT = T - priv_grid(i,j); /* local variation */
+
+                if( fabs(dT) > dTmax[MYTHREAD] )
+                    dTmax[MYTHREAD] = fabs(dT);
+                priv_new_grid(i,j) = T;
+            }
+        }
+
+        if(MYTHREAD!=THREADS-1)
+        {
+            /*Third for loop for the last line*/
+            for( j=1; j<N+1; j++ )
+            {  
+                i=(N+2)/THREADS-1;
+                T = 0.25 *
+                    (priv_grid(i,j + 1) + priv_grid(i - 1,j) +
+                     priv_grid(i,j-1) + grid((MYTHREAD+1)*priv_size,j)); /* stencil */
+
+                dT = T - priv_grid(i,j); /* local variation */
+                if( fabs(dT) > dTmax[MYTHREAD] )
+                    dTmax[MYTHREAD] = fabs(dT);
+                priv_new_grid(i,j) = T;
+            }
+        }
+
+        upc_barrier;
+
+        diffmax = 0.0;
+
+        /*Calcul the diffmax for all the threads*/
+        for(i=0; i<THREADS; i++)
+        {
+            if(dTmax[i] > diffmax)
+            {
+                diffmax = dTmax[i];
+            }
+        }
+
+        upc_all_reduceD( &diffmax, dTmax, UPC_MAX,THREADS,1,NULL,UPC_IN_ALLSYNC | UPC_OUT_ALLSYNC);
+
+        if( diffmax < epsilon ) /* is the precision reached good enough ? */
+            finished = 1;
+        else
+        {
+            /*switch the matrix*/
+            shared double *tmp;
+            tmp = sh_grid[MYTHREAD].chunk;
+            sh_grid[MYTHREAD].chunk = sh_new_grid[MYTHREAD].chunk;
+            sh_new_grid[MYTHREAD].chunk = tmp;
+
+
+            double ** tmp_priv;
+            tmp_priv = ptr_priv;
+            ptr_priv = new_ptr_priv;
+            new_ptr_priv = tmp_priv;
+        }
+        upc_barrier;
+        nr_iter++;
+    } while( finished == 0 );
+
+    if(MYTHREAD == 0)
+    {
+        gettimeofday( &ts_end, NULL ); /* end the timed section */
+
+        /* compute the execution time */
+        time = ts_end.tv_sec + (ts_end.tv_usec / 1000000.0);
+        time -= ts_st.tv_sec + (ts_st.tv_usec / 1000000.0);
+
+        printf("%d iterations in %.5lf sec\n", nr_iter, time);
+    }
+    /*Free the allocated memory*/
+    free(ptr_priv);
+    free(new_ptr_priv);
+
+    upc_free(sh_grid[MYTHREAD].chunk);
+    upc_free(sh_new_grid[MYTHREAD].chunk);
+    return 0;
+}
+```
+
+The grid is defined with chunks in a structure cause we can’t define the
+blocksize at the compilation. But with this code we can’t access to the
+table in a normal way. The line 7 to 11 are here to allow us to use
+easily the grid in the program.
+
+## Analyzing the results
+
+All the tests of this part has been run 10 times to get an average value
+
+### Comparing the effect of N
+
+To study the effect of N we will use 16 threads. N is the size of the
+grid.
+
+![image](Images/time_function_of_N.png) <span id="fig7"
+label="fig7"></span>
+
+On this graph we can see that when N is bigger all the run times
+increase. The C version is the slowest version.
+
+![image](Images/time_function_N_no_C.png) <span id="fig8"
+label="fig8"></span>
+
+There is a big difference between the run time of heat 1, heat 2 and
+heat 3. With this graph we can visualize the need to optimize the data
+distribution and using as much as possible privates pointers and data
+with affinity.
+
+### Comparing the speed-up in function of N
+
+![image](Images/speed-up_function_N.png) <span id="fig9"
+label="fig9"></span>
+
+On this graph we can see that, even if the speed up is bigger than one
+for heat 1 and heat 2, having a program (heat 3 and 4) with local data
+helps a lot. We can also observe than for small grids the parallelized
+version are slower than the c version.
+
+| N    | Speed-up of heat 4 in function of heat 3 |
+|:-----|:-----------------------------------------|
+| 30   | 0.88                                     |
+| 62   | 0.92                                     |
+| 206  | 0.81                                     |
+| 398  | 0.73                                     |
+| 606  | 0.82                                     |
+| 798  | 0.76                                     |
+| 1006 | 0.80                                     |
+
+Speed-up of heat 4 on heat 3
+
+But the most advanced version of heat is slower than heat 3. This can be
+explained cause in heat 4 we have to do a calculation to access the data
+in the heat table that will slow the program. The flexibility of the
+program is at the cost of performance, but it’s still faster than all
+the others versions.
+
+### Comparing the effect of the number of threads
+
+To compare the effect of the number of threads, N is defined on 1006
+
+![image](Images/Time_depending_threads.png) <span id="fig10"
+label="fig10"></span>
+
+We can see that when the number of threads is bigger, the program is
+faster. Heat 1 is slower than heat c for 1 threads probably cause all
+the grid are in shared space so each pointer to the data must be
+converted at each call and with one threads there isn’t any
+parallelization. On the other hand heat 4 is faster cause it use a
+pointer flipping to exchange the grid instead of the c version that copy
+the whole grid.
+
+### Comparing the speed-up in function of the number of threads
+
+![image](Images/speeed_up_depending_threads.png) <span id="fig11"
+label="fig11"></span>
+
+We can observe that when the number of threads is higher, the speed-up
+of the parallelized version is higher. But the speed up of the optimized
+version is way bigger than the not optimized version.
+
+### Sum up of the results
+
+We observed that the parallelized version are faster when we have a lot
+of threads available and a lot of data to work on. It’s important when
+we are running our test to work with a lot of data cause with small N
+the C version was faster.
+
+We also observed that one important thing is to optimize the data
+distribution to use as much local variable and shared data with affinity
+as possible. There is an average speed-up of 4,8 between heat 4 and heat
+1.
+
+We have also seen that the flexibility of a program is at the cost of
+the performance of this program.
