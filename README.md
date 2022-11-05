@@ -102,8 +102,7 @@ void main (void)
 }
 ```
 
-Here the data are not well distributed cause each threats will use data
-that don’t have affinity with them.
+Here the data is not well distributed cause each threads will use data that don't have affinity with it.
 
 ![image](Images/Matrix_vector_unoptimized.png) <span id="fig1"
 label="fig1"></span>
