@@ -48,7 +48,8 @@
 \chapter{Introduction}
 
 This document is a report of the PC40 UV at the UTBM. \newline
-All the tests was run on the \href{https://www.univ-fcomte.fr/informatique-calcul/mesocentre-de-calcul}{mesocentre de calcul Franche-Compté} with 32 execution cores and 64 GB of RAM.
+All the tests was run on the \href{https://www.univ-fcomte.fr/informatique-calcul/mesocentre-de-calcul}{mesocentre de calcul Franche-Compté} with 32 execution cores and 64 GB of RAM.\newline
+All my code can be found on my github: \href{https://github.com/estebanbecker/Parallel-computing-UPC}{https://github.com/estebanbecker/Parallel-computing-UPC}
 
 \chapter{Work sharing, synchronization}
 
@@ -146,7 +147,7 @@ void main (void)
 }
 \end{lstlisting}
 
-Here the data are not well distributed cause each threats will use data that don't have affinity with them.
+Here the data is not well distributed cause each threads will use data that don't have affinity with it.
 
 \begin{center}
     \includegraphics[scale=0.5]{Images/Matrix_vector_unoptimized.png}
