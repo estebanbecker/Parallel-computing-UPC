@@ -48,15 +48,15 @@
 \chapter{Introduction}
 
 This document is a report of the PC40 UV at the UTBM. \newline
-All the tests was run on the \href{https://www.univ-fcomte.fr/informatique-calcul/mesocentre-de-calcul}{mesocentre de calcul Franche-Compté} with 32 execution cores and 64 GB of RAM.\newline
-All my code can be found on my github: \href{https://github.com/estebanbecker/Parallel-computing-UPC}{https://github.com/estebanbecker/Parallel-computing-UPC}
+All the tests were run on the \href{https://www.univ-fcomte.fr/informatique-calcul/mesocentre-de-calcul}{mesocentre de calcul Franche-Compté} with 32 execution cores and 64 GB of RAM.\newline
+All my code can be found on my GitHub: \href{https://github.com/estebanbecker/Parallel-computing-UPC}{https://github.com/estebanbecker/Parallel-computing-UPC}
 
 \chapter{Work sharing, synchronization}
 
 \section{Conversion table}
 
-To optimize the code we can parallelize the for loop. To do it correctly we will not use a test in the loop to distribute the work but we will change the initiation and the step of the for loop.\newline
-We have to add a upc\_barrier to be sure all the work is finished before the results are printed.
+To optimize the code, we can parallelize the for loop. To do it correctly, we will not use a test in the loop to distribute the work, but we will change the initiation and the step of the for loop.\newline
+We have to add an upc\_barrier to be sure all the work is finished before the results are printed.
 
 \begin{lstlisting}[language=C]
 #include <stdio.h>
@@ -94,7 +94,7 @@ int main(){
 
 \section{Vector addition}
 
-To add two vectors we can share the additions between the threads.
+To add two vectors, we can share the additions between the threads.
 
 \begin{lstlisting}[language=C]
 #include<upc_relaxed.h> 
@@ -147,7 +147,7 @@ void main (void)
 }
 \end{lstlisting}
 
-Here the data is not well distributed cause each threads will use data that don't have affinity with it.
+Here the data is not well distributed because each thread will use data that don't have affinity with it.
 
 \begin{center}
     \includegraphics[scale=0.5]{Images/Matrix_vector_unoptimized.png}
@@ -155,7 +155,7 @@ Here the data is not well distributed cause each threads will use data that don'
     \label{fig1}
 \end{center}
 
-To optimise the code we can change the BLOCKSIZE of the matrix a. With this distribution all the data of the matrix has affinity to the thread that will use them.
+To optimize the code, we can change the BLOCKSIZE of the matrix a. With this distribution, all the data of the matrix has affinity to the thread that will use them.
 
 \begin{lstlisting}[language=C]
 // vect_mat_mult.c
@@ -186,7 +186,7 @@ void main (void)
 
 \section{The 1D solver in UPC}
 
-To implement the 1D Laplace solver in UPC we can to the following code:
+To implement the 1D Laplace solver in UPC, we can do the following code:
 
 \begin{lstlisting}[language=C]
 #include <upc_relaxed.h>
@@ -244,9 +244,9 @@ void init(){
 
 \end{lstlisting}
 
-This implementation isn't optimise cause each thread will check an IF statement to share the work. 
+This implementation isn't optimized because each thread will check an IF statement to share the work. 
 
-To avoid the race condition, we can add two upc\_barrier, one after the initialisation and another before the printing
+To avoid the race condition, we can add two upc\_barrier, one after the initialization and another before the printing
 
 \begin{center}
     \includegraphics[scale=0.75]{Images/1rst_output.png}
@@ -257,7 +257,7 @@ To avoid the race condition, we can add two upc\_barrier, one after the initiali
 \section{Optimize the code}
 
 \subsection{Avoiding the if condition}
-To avoid the code to check an if condition we can use the following for loop:
+To avoid the code to check an if condition, we can use the following for loop:
 
 \begin{lstlisting}[language=C]
     for(int j=MYTHREAD; j<TOTALSIZE-1; j+=THREADS ){
@@ -267,7 +267,7 @@ To avoid the code to check an if condition we can use the following for loop:
 
 \subsection{Blocked arrays}
 
-To optimize the memory distribution we can set a BLOCKSIZE and change the for loop to a upc\_forall 
+To optimize the memory distribution, we can set a BLOCKSIZE and change the for loop to an upc\_forall 
 
 \begin{lstlisting}[language=C]
 #include <upc_relaxed.h>
@@ -333,7 +333,7 @@ void init(){
     \label{fig5}
 \end{center}
 
-With the above schema we can see that when the data are grouped together, there is more shared memory access with affinity than the original distribution.
+With the above schema, we can see that when the data are grouped together, there is more shared memory access with affinity than the original distribution.
 
 \section{Synchronization}
 
@@ -402,16 +402,16 @@ void init(){
 
 \end{lstlisting}
 
-To implement the iteration we have to avoid the race condition by adding two upc\_barrier at the lines 28 and 35
+To implement the iteration, we have to avoid the race condition by adding two upc\_barrier at the lines 28 and 35
 
 \section{Convergence}
 We have to keep track of the maximum difference between the \textit{x} and \textit{xmax}.
-To check if the code reached to convergence we can use the following collective operation:
+To check if the code reached to convergence, we can use the following collective operation:
 \begin{lstlisting}[language=c]
 upc_all_reduceD( &diffmax, diff, UPC_MAX,THREADS,1,NULL,UPC_OUT_ALLSYNC);
 \end{lstlisting}
 
-Finally we obtain this code:
+Finally, we obtain this code:
 
 \begin{lstlisting}[language=c]
 #include <upc.h>
@@ -495,7 +495,7 @@ int main(){
 
 \section{First UPC program}
 
-To create the first UPC version we spread the work between all the threads and optimize the data blocksize.
+To create the first UPC version, we spread the work between all the threads and optimize the data blocksize.
 
 \begin{lstlisting}[language=c]
 #include <stdio.h>
@@ -589,8 +589,8 @@ int main(void)
 
 \section{Better memory use}
 
-We can improve the memory use by not copying the whole grid at each iteration. To do that we will use a pointer for each grid and flip them at the end of an iteration.\newline
-To achieve that we have to declare shared pointers:
+We can improve the memory use by not copying the whole grid at each iteration. To do that, we will use a pointer for each grid and flip them at the end of an iteration.\newline
+To achieve that, we have to declare shared pointers:
 \begin{lstlisting}[language=c]
 shared [(N+2)*(N+2)/THREADS] double *shared ptr[N+2], *shared new_ptr[N+2];
 \end{lstlisting}
@@ -607,7 +607,7 @@ upc_forall( k=0; k<N+2; k++; k)
 
 \section{Performance boost using privatization}
 
-To increase the performance we can use private pointers. To do that we will have to do 3 different for loop. One for the top part of the local pointers, one for the middle part and one for the bottom part.
+To increase the performance, we can use private pointers. To do that, we will have to do 3 different for loop. One for the top part of the local pointers, one for the middle part and one for the bottom part.
 
 \begin{center}
     \includegraphics[scale=1]{Images/for_loop_distribution.png}
@@ -771,7 +771,7 @@ int main(void)
 
 \section{Dynamic problem size}
 
-To allow the user to chose the problem size at the run time in the command we will have to use memory allocation with upc\_alloc and malloc.
+To allow the user to choose the problem size at the run time in the command, we will have to use memory allocation with upc\_alloc and malloc.
 
 \begin{lstlisting}[language=c]
 #include <stdio.h>
@@ -978,9 +978,9 @@ int main(int argc, char *argv[])
 }
 \end{lstlisting}
 
-The grid is defined with chunks in a structure cause we can't define the blocksize at the compilation. But with this code we can't access to the table in a normal way. The line 7 to 11 are here to allow us to use easily the grid in the program.
+The grid is defined with chunks in a structure, because we can't define the blocksize at the compilation. But with this code, we can't access the table in a normal way. The line 7 to 11 are here to allow us to use easily the grid in the program.
 
-\section{Analyzing the results}
+\section{Analysing the results}
 
 All the tests of this part has been run 10 times to get an average value
 
@@ -994,7 +994,7 @@ To study the effect of N we will use 16 threads. N is the size of the grid.
     \label{fig7}
 \end{center}
 
-On this graph we can see that when N is bigger all the run times increase. The C version is the slowest version.
+On this graph, we can see that when N is bigger, all the run times increase. The C version is the slowest version.
 
 \begin{center}
     \includegraphics[scale=1]{Images/time_function_N_no_C.png}
@@ -1002,7 +1002,7 @@ On this graph we can see that when N is bigger all the run times increase. The C
     \label{fig8}
 \end{center}
 
-There is a big difference between the run time of heat 1, heat 2 and heat 3. With this graph we can visualize the need to optimize the data distribution and using as much as possible privates pointers and data with affinity.
+There is a big difference between the run time of heat 1, heat 2 and heat 3. With this graph, we can visualize the need to optimize the data distribution and using as much as possible privates pointers and data with affinity.
 
 \subsection{Comparing the speed-up in function of N}
 
@@ -1012,8 +1012,8 @@ There is a big difference between the run time of heat 1, heat 2 and heat 3. Wit
     \label{fig9}
 \end{center}
 
-On this graph we can see that, even if the speed up is bigger than one for heat 1 and heat 2, having a program (heat 3 and 4) with local data helps a lot.
-We can also observe than for small grids the parallelized version are slower than the c version. 
+On this graph we can see that, even if the speed-up is bigger than one for heat 1 and heat 2, having a program (heat 3 and 4) with local data helps a lot.
+We can also observe that for small grids, the parallelized version is slower than the c version. 
 
 \begin{table}[h]
 \centering
@@ -1031,11 +1031,11 @@ N    & Speed-up of heat 4 in function of heat 3 \\ \hline
 \end{tabular}
 \end{table}
 
-But the most advanced version of heat is slower than heat 3. This can be explained cause in heat 4 we have to do a calculation to access the data in the heat table that will slow the program. The flexibility of the program is at the cost of performance, but it's still faster than all the others versions.
+But the most advanced version of heat is slower than heat 3. This can be explained because in heat 4 we have to do a calculation to access the data in the heat table that will slow the program. The flexibility of the program is at the cost of performance, but it's still faster than all the others versions.
 
 \subsection{Comparing the effect of the number of threads}
 
-To compare the effect of the number of threads, N is defined on 1006
+To compare the effect of the number of threads, N is defined as, 1006
 
 \begin{center}
     \includegraphics[scale=1]{Images/Time_depending_threads.png}
@@ -1043,7 +1043,7 @@ To compare the effect of the number of threads, N is defined on 1006
     \label{fig10}
 \end{center}
 
-We can see that when the number of threads is bigger, the program is faster. Heat 1 is slower than heat c for 1 threads probably cause all the grid are in shared space so each pointer to the data must be converted at each call and with one threads there isn't any parallelization. On the other hand heat 4 is faster cause it use a pointer flipping to exchange the grid instead of the c version that copy the whole grid.
+We can see that when the number of threads is bigger, the program is faster. Heat 1 is slower than heat c for 1 threads probably cause all the grid are in shared space, so each pointer to the data must be converted at each call and with one threads there isn't any parallelization. On the other hand, heat 4 is faster because it uses a pointer flipping to exchange the grid instead of the c version that copy the whole grid.
 
 \subsection{Comparing the speed-up in function of the number of threads}
 
@@ -1053,7 +1053,7 @@ We can see that when the number of threads is bigger, the program is faster. Hea
     \label{fig11}
 \end{center}
 
-We can observe that when the number of threads is higher, the speed-up of the parallelized version is higher. But the speed up of the optimized version is way bigger than the not optimized version.
+We can observe that when the number of threads is higher, the speed-up of the parallelized version is higher. But the speed-up of the optimized version is way bigger than the not optimized version.
 
 \subsection{Sum up of the results}
 
